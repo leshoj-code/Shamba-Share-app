@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1012776080995",
+    "project_id": "shambashare-20a23",
+    "storage_bucket": "shambashare-20a23.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1012776080995:android:5361ddf9449e944d99ca56",
+        "android_client_info": {
+          "package_name": "com.ojiambo.shambashare"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD6_9v28mB7qy6V7GaRxzedIoBpgQmeLqA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

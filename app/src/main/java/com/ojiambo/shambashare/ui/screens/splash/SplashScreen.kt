@@ -26,7 +26,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -34,15 +33,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ojiambo.shambashare.R
+import com.ojiambo.shambashare.navigation.ROUT_LOGIN
 import com.ojiambo.shambashare.ui.theme.ShambaGreen
 import com.ojiambo.shambashare.ui.theme.ShambaGreenLight
 import com.ojiambo.shambashare.ui.theme.ShambaGreenPale
 import kotlinx.coroutines.delay
 
 @Composable
-fun SplashScreen(navController: NavController){
+fun SplashScreen(navController: NavController) {
 
-    // Animation states
     var startAnimation by remember { mutableStateOf(false) }
 
     val scale by animateFloatAsState(
@@ -55,30 +54,27 @@ fun SplashScreen(navController: NavController){
         animationSpec = tween(durationMillis = 1200)
     )
 
-    // Launch effect for animation + navigation
     LaunchedEffect(true) {
         startAnimation = true
         delay(2500)
+        navController.navigate(ROUT_LOGIN) {
+            popUpTo("splash") { inclusive = true }
+        }
     }
 
-    // ShambaShare green gradient
     val gradient = Brush.verticalGradient(
-        colors = listOf(
-            ShambaGreen,        // #1a6b3c — dark green top
-            ShambaGreenLight    // #2d9e5f — lighter green bottom
-        )
+        colors = listOf(ShambaGreen, ShambaGreenLight)
     )
 
     Column(
-        modifier = Modifier.run {
-            background(brush = gradient)
-                .fillMaxSize()
-        },
+        modifier = Modifier
+            .fillMaxSize()
+            .background(brush = gradient),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
 
-        // Logo with animation
+        // Tractor logo
         Image(
             painter = painterResource(R.drawable.splash),
             contentDescription = "ShambaShare Logo",
@@ -88,36 +84,45 @@ fun SplashScreen(navController: NavController){
                 .alpha(alpha)
         )
 
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Loading indicator (subtle)
-        CircularProgressIndicator(
+        // App name — big, directly below the logo
+        Text(
+            text = "ShambaShare",
             color = androidx.compose.ui.graphics.Color.White,
+            fontSize = 36.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.alpha(alpha)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Tagline
+        Text(
+            text = "Rent farm equipment, grow together.",
+            color = ShambaGreenPale,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Center,
+            lineHeight = 20.sp,
+            modifier = Modifier.alpha(alpha)
+        )
+
+        Spacer(modifier = Modifier.height(48.dp))
+
+        // Loading indicator at the bottom
+        CircularProgressIndicator(
+            color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.7f),
             strokeWidth = 3.dp,
-            modifier = Modifier.size(30.dp)
+            modifier = Modifier
+                .size(30.dp)
+                .alpha(alpha)
         )
     }
-
-    // Tagline
-    Text(
-        text = "Rent farm equipment,\ngrow together.",
-        color = ShambaGreenPale,
-        fontSize = 14.sp,
-        fontWeight = FontWeight.Medium,
-        textAlign = TextAlign.Center,
-        lineHeight = 20.sp,
-        modifier = Modifier.alpha(alpha)
-    )
-
-    Spacer(modifier = Modifier.height(48.dp))
-
-
 }
-
-
 
 @Preview(showBackground = true)
 @Composable
-fun SplashScreenPreview(){
+fun SplashScreenPreview() {
     SplashScreen(rememberNavController())
 }
