@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.ojiambo.shambashare.data.AuthViewModel
+import com.ojiambo.shambashare.navigation.ROUT_LOGIN
 import com.ojiambo.shambashare.ui.theme.ShambaGreen
 import com.ojiambo.shambashare.ui.theme.ShambaGreenLight
 import com.ojiambo.shambashare.ui.theme.ShambaGreenPale
@@ -440,7 +441,7 @@ fun SignupScreen(navController: NavController) {
                     color = Color.Gray,
                     fontSize = 14.sp
                 )
-                TextButton(onClick = { navController.navigate("login") }) {
+                TextButton(onClick = { navController.navigate(ROUT_LOGIN) }) {
                     Text(
                         text = "Login",
                         color = ShambaGreen,

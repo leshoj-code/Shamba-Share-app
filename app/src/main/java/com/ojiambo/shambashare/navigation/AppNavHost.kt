@@ -9,6 +9,11 @@ import androidx.navigation.compose.rememberNavController
 import com.ojiambo.shambashare.ui.screens.about.AboutScreen
 import com.ojiambo.shambashare.ui.screens.auth.LoginScreen
 import com.ojiambo.shambashare.ui.screens.auth.SignupScreen
+import com.ojiambo.shambashare.ui.screens.dashboard.DashboardScreen
+import com.ojiambo.shambashare.ui.screens.equipment.AddEquipmentScreen
+import com.ojiambo.shambashare.ui.screens.history.HistoryScreen
+import com.ojiambo.shambashare.ui.screens.map.MapScreen
+import com.ojiambo.shambashare.ui.screens.profile.ProfileScreen
 import com.ojiambo.shambashare.ui.screens.splash.SplashScreen
 
 @Composable
@@ -35,6 +40,22 @@ fun AppNavHost(
         composable(ROUT_SIGNUP) {
             SignupScreen(navController)
         }
+        composable(ROUT_MAP) {
+            MapScreen(navController)
+        }
+        composable(ROUT_DASHBOARD) {
+            DashboardScreen(navController)
+        }
+        composable(ROUT_ADD_EQUIPMENT) {
+            AddEquipmentScreen(navController)
+        }
+        composable(ROUT_HISTORY) {
+            HistoryScreen(navController)
+        }
+        composable(ROUT_PROFILE) {
+            ProfileScreen(navController)
+        }
+
     }
 
   }

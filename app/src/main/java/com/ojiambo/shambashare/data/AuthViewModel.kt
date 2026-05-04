@@ -6,6 +6,10 @@ import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 import com.ojiambo.shambashare.models.User
+import com.ojiambo.shambashare.navigation.ROUT_DASHBOARD
+import com.ojiambo.shambashare.navigation.ROUT_LOGIN
+import com.ojiambo.shambashare.navigation.ROUT_MAP
+import com.ojiambo.shambashare.navigation.ROUT_SIGNUP
 
 class AuthViewModel(val navController: NavController, val context: Context) {
 
@@ -53,12 +57,12 @@ class AuthViewModel(val navController: NavController, val context: Context) {
                                 Toast.makeText(context, "Account created!", Toast.LENGTH_LONG).show()
                                 // Route based on role
                                 if (role == "owner") {
-                                    navController.navigate("dashboard") {
-                                        popUpTo("signup") { inclusive = true }
+                                    navController.navigate(ROUT_DASHBOARD) {
+                                        popUpTo(ROUT_SIGNUP) { inclusive = true }
                                     }
                                 } else {
-                                    navController.navigate("map") {
-                                        popUpTo("signup") { inclusive = true }
+                                    navController.navigate(ROUT_MAP) {
+                                        popUpTo(ROUT_SIGNUP) { inclusive = true }
                                     }
                                 }
                             } else {
@@ -97,18 +101,18 @@ class AuthViewModel(val navController: NavController, val context: Context) {
                             Toast.makeText(context, "Welcome back!", Toast.LENGTH_SHORT).show()
                             if (role == "owner") {
                                 navController.navigate("dashboard") {
-                                    popUpTo("login") { inclusive = true }
+                                    popUpTo(ROUT_LOGIN) { inclusive = true }
                                 }
                             } else {
                                 navController.navigate("map") {
-                                    popUpTo("login") { inclusive = true }
+                                    popUpTo(ROUT_LOGIN) { inclusive = true }
                                 }
                             }
                         }
                         .addOnFailureListener {
                             Toast.makeText(context, "Failed to fetch user role.", Toast.LENGTH_SHORT).show()
                             navController.navigate("map") {
-                                popUpTo("login") { inclusive = true }
+                                popUpTo(ROUT_LOGIN) { inclusive = true }
                             }
                         }
                 } else {
@@ -123,7 +127,7 @@ class AuthViewModel(val navController: NavController, val context: Context) {
 
     fun logout() {
         mAuth.signOut()
-        navController.navigate("login") {
+        navController.navigate(ROUT_LOGIN) {
             popUpTo(0) { inclusive = true }
         }
     }
