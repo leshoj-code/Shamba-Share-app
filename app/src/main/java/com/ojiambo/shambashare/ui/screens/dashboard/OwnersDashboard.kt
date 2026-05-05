@@ -20,9 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Agriculture
 import androidx.compose.material.icons.filled.ExitToApp
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Badge
@@ -37,6 +35,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,28 +47,34 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.FirebaseDatabase
+import com.ojiambo.shambashare.navigation.ROUT_ADD_EQUIPMENT
+import com.ojiambo.shambashare.navigation.ROUT_HISTORY
+import com.ojiambo.shambashare.navigation.ROUT_LOGIN
 import com.ojiambo.shambashare.navigation.ROUT_MAP
+import com.ojiambo.shambashare.navigation.ROUT_NOTIFICATIONS
+import com.ojiambo.shambashare.navigation.ROUT_PROFILE
 import com.ojiambo.shambashare.ui.theme.ShambaGreen
 import com.ojiambo.shambashare.ui.theme.ShambaGreenLight
 import com.ojiambo.shambashare.ui.theme.ShambaGreenPale
-import androidx.compose.runtime.LaunchedEffect
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.FirebaseDatabase
 
-// Sample data
 data class EquipmentItem(
-    val id: Int,
-    val name: String,
-    val type: String,
-    val pricePerHour: Int,
-    val status: String,
-    val currentRenter: String? = null
+    val id: String = "",
+    val name: String = "",
+    val type: String = "",
+    val pricePerHour: Int = 0,
+    val status: String = "Idle",
+    val currentRenter: String? = null,
+    val renterUid: String? = null,
+    val renterPhone: String? = null
 )
 
 data class OrderRequest(
@@ -80,10 +85,10 @@ data class OrderRequest(
 )
 
 val sampleEquipment = listOf(
-    EquipmentItem(1, "Massey Ferguson 385", "Tractor", 3500, "Active", "John Kamau"),
-    EquipmentItem(2, "Water Pump 3inch", "Water Pump", 800, "Idle"),
-    EquipmentItem(3, "Combine Harvester", "Harvester", 8000, "Idle"),
-    EquipmentItem(4, "John Deere 5075E", "Tractor", 4200, "Idle"),
+    EquipmentItem("1", "Massey Ferguson 385", "Tractor", 3500, "Active", "John Kamau", "uid123", "0712345678"),
+    EquipmentItem("2", "Water Pump 3inch", "Water Pump", 800, "Idle"),
+    EquipmentItem("3", "Combine Harvester", "Harvester", 8000, "Idle"),
+    EquipmentItem("4", "John Deere 5075E", "Tractor", 4200, "Idle"),
 )
 
 @Composable
@@ -100,7 +105,6 @@ fun DashboardScreen(navController: NavController) {
                 .addOnSuccessListener { snapshot ->
                     val fullName = snapshot.child("fullName").value?.toString()
                     val username = snapshot.child("username").value?.toString()
-                    // Use fullName if available, fall back to username
                     displayName = fullName?.split(" ")?.firstOrNull()
                         ?: username
                                 ?: "there"
@@ -111,7 +115,6 @@ fun DashboardScreen(navController: NavController) {
     var showOrderDialog by remember { mutableStateOf(false) }
     var pendingOrder by remember {
         mutableStateOf<OrderRequest?>(
-            // Simulate an incoming order for demo
             OrderRequest(1, "Paul Allan", "Massey Ferguson 385", 1)
         )
     }
@@ -126,12 +129,10 @@ fun DashboardScreen(navController: NavController) {
         colors = listOf(ShambaGreen, ShambaGreenLight)
     )
 
-    // Incoming order dialog
     if (showOrderDialog && pendingOrder != null) {
         IncomingOrderDialog(
             order = pendingOrder!!,
             onAccept = {
-                // TODO: call /accept-order/
                 showOrderDialog = false
                 pendingOrder = null
             },
@@ -158,7 +159,6 @@ fun DashboardScreen(navController: NavController) {
                         .padding(horizontal = 20.dp, vertical = 24.dp)
                 ) {
                     Column {
-                        // Top row
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -196,7 +196,6 @@ fun DashboardScreen(navController: NavController) {
                             }
 
                             Row {
-                                // Notification bell with badge
                                 BadgedBox(
                                     badge = {
                                         if (pendingOrder != null) {
@@ -206,7 +205,9 @@ fun DashboardScreen(navController: NavController) {
                                         }
                                     }
                                 ) {
-                                    IconButton(onClick = { showOrderDialog = true }) {
+                                    IconButton(onClick = {
+                                        navController.navigate(ROUT_NOTIFICATIONS)
+                                    }) {
                                         Icon(
                                             imageVector = Icons.Default.Notifications,
                                             contentDescription = "Notifications",
@@ -215,7 +216,12 @@ fun DashboardScreen(navController: NavController) {
                                     }
                                 }
 
-                                IconButton(onClick = { navController.navigate("login") }) {
+                                IconButton(onClick = {
+                                    FirebaseAuth.getInstance().signOut()
+                                    navController.navigate(ROUT_LOGIN) {
+                                        popUpTo(0) { inclusive = true }
+                                    }
+                                }) {
                                     Icon(
                                         imageVector = Icons.Default.ExitToApp,
                                         contentDescription = "Logout",
@@ -227,7 +233,6 @@ fun DashboardScreen(navController: NavController) {
 
                         Spacer(modifier = Modifier.height(20.dp))
 
-                        // App name
                         Text(
                             text = "ShambaShare",
                             color = Color.White,
@@ -243,7 +248,6 @@ fun DashboardScreen(navController: NavController) {
 
                         Spacer(modifier = Modifier.height(20.dp))
 
-                        // Stats row
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -294,7 +298,7 @@ fun DashboardScreen(navController: NavController) {
                             emoji = "➕",
                             label = "Add Equipment",
                             color = ShambaGreen,
-                            onClick = { navController.navigate("add_equipment") }
+                            onClick = { navController.navigate(ROUT_ADD_EQUIPMENT) }
                         )
                     }
                     item {
@@ -310,7 +314,7 @@ fun DashboardScreen(navController: NavController) {
                             emoji = "📋",
                             label = "Rental History",
                             color = Color(0xFF6A1B9A),
-                            onClick = { navController.navigate("history") }
+                            onClick = { navController.navigate(ROUT_HISTORY) }
                         )
                     }
                     item {
@@ -318,7 +322,7 @@ fun DashboardScreen(navController: NavController) {
                             emoji = "👤",
                             label = "My Profile",
                             color = Color(0xFF00838F),
-                            onClick = { navController.navigate("profile") }
+                            onClick = { navController.navigate(ROUT_PROFILE) }
                         )
                     }
                 }
@@ -357,7 +361,6 @@ fun DashboardScreen(navController: NavController) {
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-            // Active equipment cards
             val activeEquipment = sampleEquipment.filter { it.status == "Active" }
             if (activeEquipment.isEmpty()) {
                 item {
@@ -381,6 +384,7 @@ fun DashboardScreen(navController: NavController) {
                 items(activeEquipment) { equipment ->
                     EquipmentCard(
                         equipment = equipment,
+                        navController = navController,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
                     )
                 }
@@ -403,6 +407,7 @@ fun DashboardScreen(navController: NavController) {
             items(idleEquipment) { equipment ->
                 EquipmentCard(
                     equipment = equipment,
+                    navController = navController,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
                 )
             }
@@ -415,9 +420,8 @@ fun DashboardScreen(navController: NavController) {
             }
         }
 
-        // FAB — Add Equipment
         FloatingActionButton(
-            onClick = { navController.navigate("add_equipment") },
+            onClick = { navController.navigate(ROUT_ADD_EQUIPMENT) },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(20.dp),
@@ -493,7 +497,7 @@ fun QuickActionCard(
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = color,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                textAlign = TextAlign.Center,
                 lineHeight = 14.sp
             )
         }
@@ -503,6 +507,7 @@ fun QuickActionCard(
 @Composable
 fun EquipmentCard(
     equipment: EquipmentItem,
+    navController: NavController,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -511,85 +516,126 @@ fun EquipmentCard(
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Equipment icon
-            Box(
-                modifier = Modifier
-                    .size(52.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(
-                        if (equipment.status == "Active")
-                            ShambaGreen.copy(alpha = 0.1f)
-                        else
-                            Color(0xFFF5F5F5)
-                    ),
-                contentAlignment = Alignment.Center
+        Column(modifier = Modifier.padding(16.dp)) {
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = when (equipment.type) {
-                        "Tractor" -> "🚜"
-                        "Water Pump" -> "💧"
-                        "Harvester" -> "🌾"
-                        else -> "🚜"
-                    },
-                    fontSize = 26.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.width(14.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = equipment.name,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0f2d1c)
-                )
-                if (equipment.currentRenter != null) {
+                // Equipment icon
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (equipment.status == "Active")
+                                ShambaGreen.copy(alpha = 0.1f)
+                            else
+                                Color(0xFFF5F5F5)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
-                        text = "Renter: ${equipment.currentRenter}",
-                        fontSize = 12.sp,
-                        color = Color.Gray
-                    )
-                } else {
-                    Text(
-                        text = equipment.type,
-                        fontSize = 12.sp,
-                        color = Color.Gray
+                        text = when (equipment.type) {
+                            "Tractor"    -> "🚜"
+                            "Water Pump" -> "💧"
+                            "Harvester"  -> "🌾"
+                            else         -> "🚜"
+                        },
+                        fontSize = 26.sp
                     )
                 }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "KES ${equipment.pricePerHour}/hr",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = ShambaGreen
-                )
+
+                Spacer(modifier = Modifier.width(14.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = equipment.name,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0f2d1c)
+                    )
+                    if (equipment.currentRenter != null) {
+                        Text(
+                            text = "Renter: ${equipment.currentRenter}",
+                            fontSize = 12.sp,
+                            color = Color.Gray
+                        )
+                    } else {
+                        Text(
+                            text = equipment.type,
+                            fontSize = 12.sp,
+                            color = Color.Gray
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "KES ${equipment.pricePerHour}/hr",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = ShambaGreen
+                    )
+                }
+
+                // Status badge
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50.dp))
+                        .background(
+                            if (equipment.status == "Active")
+                                ShambaGreen.copy(alpha = 0.1f)
+                            else
+                                Color(0xFFF5F5F5)
+                        )
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = if (equipment.status == "Active") "● Active" else "● Idle",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (equipment.status == "Active") ShambaGreen else Color.Gray
+                    )
+                }
             }
 
-            // Status badge
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(50.dp))
-                    .background(
-                        if (equipment.status == "Active")
-                            ShambaGreen.copy(alpha = 0.1f)
-                        else
-                            Color(0xFFF5F5F5)
-                    )
-                    .padding(horizontal = 10.dp, vertical = 6.dp)
-            ) {
-                Text(
-                    text = if (equipment.status == "Active") "● Active" else "● Idle",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (equipment.status == "Active") ShambaGreen else Color.Gray
+            // Request Payment button — only shown for Active equipment
+            if (equipment.status == "Active") {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(Color(0xFFF5F5F5))
                 )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        navController.navigate(
+                            "payment/${equipment.id}/" +
+                                    "${equipment.name}/" +
+                                    "${equipment.renterUid ?: ""}/" +
+                                    "${equipment.renterPhone ?: ""}/" +
+                                    "${equipment.pricePerHour}"
+                        )
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(42.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ShambaGreen,
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text(
+                        text = "💰 Request Payment",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }
@@ -672,14 +718,14 @@ fun IncomingOrderDialog(
                     text = "${order.renterName} wants to rent your",
                     fontSize = 14.sp,
                     color = Color.Gray,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    textAlign = TextAlign.Center
                 )
                 Text(
                     text = order.equipmentName,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = ShambaGreen,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    textAlign = TextAlign.Center
                 )
                 Spacer(modifier = Modifier.height(24.dp))
                 Button(
@@ -721,9 +767,9 @@ fun IncomingOrderDialog(
 fun getGreeting(): String {
     val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
     return when {
-        hour < 12  -> "Good morning,"
-        hour < 18  -> "Good afternoon,"
-        else       -> "Good evening,"
+        hour < 12 -> "Good morning,"
+        hour < 18 -> "Good afternoon,"
+        else      -> "Good evening,"
     }
 }
 
