@@ -1,7 +1,11 @@
 package com.ojiambo.shambashare.ui.screens.map
 
+import android.R.attr.title
+import android.content.Intent
+import android.content.res.Configuration
+import android.net.Uri
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.snapping.SnapPosition.Center.position
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,7 +21,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Agriculture
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.BottomSheetScaffold
@@ -35,6 +38,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,70 +49,97 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import com.google.android.gms.maps.model.BitmapDescriptorFactory
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.MapProperties
-import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.Marker
-import com.google.maps.android.compose.MarkerState
-import com.google.maps.android.compose.rememberCameraPositionState
+import coil.compose.AsyncImage
+import com.google.firebase.database.FirebaseDatabase
 import com.ojiambo.shambashare.ui.theme.ShambaGreen
-import com.ojiambo.shambashare.ui.theme.ShambaGreenLight
 import kotlinx.coroutines.launch
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.MapView
+import org.osmdroid.config.Configuration as OsmConfig
 
-// Dummy equipment data — replace with your Django API call later
-data class Equipment(
-    val id: Int,
-    val name: String,
-    val type: String,
-    val pricePerHour: Int,
-    val ownerPhone: String,
-    val lat: Double,
-    val lng: Double,
-    val status: String = "Idle"
-)
-
-val sampleEquipment = listOf(
-    Equipment(1, "Massey Ferguson 385", "Tractor", 3500, "254712345678", -1.2864, 36.8172),
-    Equipment(2, "Water Pump 3inch", "Water Pump", 800, "254723456789", -1.2950, 36.8200),
-    Equipment(3, "Combine Harvester", "Harvester", 8000, "254734567890", -1.2800, 36.8100),
+data class EquipmentMapItem(
+    val id:           String = "",
+    val name:         String = "",
+    val type:         String = "",
+    val pricePerHour: Int    = 0,
+    val ownerPhone:   String = "",
+    val lat:          Double = 0.0,
+    val lng:          Double = 0.0,
+    val status:       String = "Idle",
+    val imageUrl:     String = ""
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(navController: NavController) {
 
-    // Nairobi center
-    val nairobi = LatLng(-1.286389, 36.817223)
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(nairobi, 12f)
-    }
+    val context = LocalContext.current
+    var searchQuery       by remember { mutableStateOf("") }
+    var selectedEquipment by remember { mutableStateOf<EquipmentMapItem?>(null) }
+    var equipmentList     by remember { mutableStateOf<List<EquipmentMapItem>>(emptyList()) }
+    var mapView           by remember { mutableStateOf<MapView?>(null) }
 
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedEquipment by remember { mutableStateOf<Equipment?>(null) }
-
-    val scope = rememberCoroutineScope()
+    val scope         = rememberCoroutineScope()
     val scaffoldState = rememberBottomSheetScaffoldState(
         bottomSheetState = rememberStandardBottomSheetState(
-            initialValue = SheetValue.Hidden,
+            initialValue    = SheetValue.Hidden,
             skipHiddenState = false
         )
     )
 
+    // Initialize OSM config
+    LaunchedEffect(Unit) {
+        OsmConfig.getInstance().userAgentValue = context.packageName
+    }
+
+    // Fetch equipment from Firebase
+    LaunchedEffect(Unit) {
+        FirebaseDatabase.getInstance()
+            .getReference("Equipment")
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val items = mutableListOf<EquipmentMapItem>()
+                snapshot.children.forEach { child ->
+                    val item = EquipmentMapItem(
+                        id           = child.child("id").value?.toString()           ?: "",
+                        name         = child.child("name").value?.toString()         ?: "",
+                        type         = child.child("type").value?.toString()         ?: "",
+                        pricePerHour = child.child("pricePerHour").value
+                            ?.toString()?.toIntOrNull()              ?: 0,
+                        ownerPhone   = child.child("ownerPhone").value?.toString()   ?: "",
+                        lat          = child.child("lat").value?.toString()
+                            ?.toDoubleOrNull()                        ?: 0.0,
+                        lng          = child.child("lng").value?.toString()
+                            ?.toDoubleOrNull()                        ?: 0.0,
+                        status       = child.child("status").value?.toString()       ?: "Idle",
+                        imageUrl     = child.child("imageUrl").value?.toString()     ?: ""
+                    )
+                    if (item.lat != 0.0 && item.lng != 0.0) items.add(item)
+                }
+                equipmentList = items
+            }
+    }
+
+    // Cleanup map on dispose
+    DisposableEffect(Unit) {
+        onDispose { mapView?.onDetach() }
+    }
+
     BottomSheetScaffold(
-        scaffoldState = scaffoldState,
+        scaffoldState  = scaffoldState,
         sheetPeekHeight = 0.dp,
-        sheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        sheetContent = {
-            // Bottom sheet — equipment details
+        sheetShape     = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        sheetContent   = {
             selectedEquipment?.let { equipment ->
                 Column(
                     modifier = Modifier
@@ -126,10 +158,24 @@ fun MapScreen(navController: NavController) {
 
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    // Equipment image (if available)
+                    if (equipment.imageUrl.isNotEmpty()) {
+                        AsyncImage(
+                            model              = equipment.imageUrl,
+                            contentDescription = "Equipment photo",
+                            modifier           = Modifier
+                                .fillMaxWidth()
+                                .height(180.dp)
+                                .clip(RoundedCornerShape(14.dp)),
+                            contentScale       = ContentScale.Crop
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+
                     // Equipment header
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier          = Modifier.fillMaxWidth()
                     ) {
                         Box(
                             modifier = Modifier
@@ -140,10 +186,10 @@ fun MapScreen(navController: NavController) {
                         ) {
                             Text(
                                 text = when (equipment.type) {
-                                    "Tractor" -> "🚜"
+                                    "Tractor"    -> "🚜"
                                     "Water Pump" -> "💧"
-                                    "Harvester" -> "🌾"
-                                    else -> "🚜"
+                                    "Harvester"  -> "🌾"
+                                    else         -> "🚜"
                                 },
                                 fontSize = 28.sp
                             )
@@ -153,19 +199,18 @@ fun MapScreen(navController: NavController) {
 
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = equipment.name,
-                                fontSize = 18.sp,
+                                text       = equipment.name,
+                                fontSize   = 18.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0f2d1c)
+                                color      = Color(0xFF0f2d1c)
                             )
                             Text(
-                                text = equipment.type,
+                                text     = equipment.type,
                                 fontSize = 13.sp,
-                                color = Color.Gray
+                                color    = Color.Gray
                             )
                         }
 
-                        // Status badge
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(50.dp))
@@ -178,23 +223,21 @@ fun MapScreen(navController: NavController) {
                                 .padding(horizontal = 12.dp, vertical = 4.dp)
                         ) {
                             Text(
-                                text = if (equipment.status == "Idle") "Available" else "In Use",
-                                fontSize = 12.sp,
+                                text       = if (equipment.status == "Idle") "Available" else "In Use",
+                                fontSize   = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (equipment.status == "Idle")
-                                    ShambaGreen
-                                else
-                                    Color(0xFFE65100)
+                                color      = if (equipment.status == "Idle") ShambaGreen
+                                else Color(0xFFE65100)
                             )
                         }
                     }
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // Price
+                    // Price card
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
+                        colors   = CardDefaults.cardColors(
                             containerColor = ShambaGreen.copy(alpha = 0.05f)
                         ),
                         shape = RoundedCornerShape(12.dp)
@@ -204,51 +247,54 @@ fun MapScreen(navController: NavController) {
                                 .fillMaxWidth()
                                 .padding(16.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment     = Alignment.CenterVertically
                         ) {
                             Column {
                                 Text(
-                                    text = "Price per hour",
+                                    text     = "Price per hour",
                                     fontSize = 12.sp,
-                                    color = Color.Gray
+                                    color    = Color.Gray
                                 )
                                 Text(
-                                    text = "KES ${equipment.pricePerHour}",
-                                    fontSize = 22.sp,
+                                    text       = "KES ${equipment.pricePerHour}",
+                                    fontSize   = 22.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = ShambaGreen
+                                    color      = ShambaGreen
                                 )
                             }
                             Icon(
-                                imageVector = Icons.Default.Agriculture,
+                                imageVector    = Icons.Default.Agriculture,
                                 contentDescription = null,
-                                tint = ShambaGreen.copy(alpha = 0.3f),
-                                modifier = Modifier.size(40.dp)
+                                tint           = ShambaGreen.copy(alpha = 0.3f),
+                                modifier       = Modifier.size(40.dp)
                             )
                         }
                     }
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // Action buttons
+                    // Order Now button
                     Button(
                         onClick = {
-                            // TODO: call /request-order/${equipment.id}/
+                            // TODO: send order request to Firebase
                             scope.launch { scaffoldState.bottomSheetState.hide() }
                         },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(
+                        shape   = RoundedCornerShape(14.dp),
+                        colors  = ButtonDefaults.buttonColors(
                             containerColor = ShambaGreen,
-                            contentColor = Color.White
+                            contentColor   = Color.White
                         ),
                         enabled = equipment.status == "Idle"
                     ) {
                         Text(
-                            text = if (equipment.status == "Idle") "🚜 Order Now" else "Currently Unavailable",
-                            fontSize = 16.sp,
+                            text       = if (equipment.status == "Idle")
+                                "🚜 Order Now"
+                            else
+                                "Currently Unavailable",
+                            fontSize   = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -258,23 +304,26 @@ fun MapScreen(navController: NavController) {
                     // WhatsApp button
                     Button(
                         onClick = {
-                            // TODO: open WhatsApp intent
-                            // val intent = Intent(Intent.ACTION_VIEW,
-                            //     Uri.parse("https://wa.me/${equipment.ownerPhone}"))
-                            // context.startActivity(intent)
+                            if (equipment.ownerPhone.isNotEmpty()) {
+                                val intent = Intent(
+                                    Intent.ACTION_VIEW,
+                                    Uri.parse("https://wa.me/${equipment.ownerPhone}")
+                                )
+                                context.startActivity(intent)
+                            }
                         },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp),
-                        shape = RoundedCornerShape(14.dp),
+                        shape  = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF25D366),
-                            contentColor = Color.White
+                            contentColor   = Color.White
                         )
                     ) {
                         Text(
-                            text = "💬 WhatsApp Owner",
-                            fontSize = 16.sp,
+                            text       = "💬 WhatsApp Owner",
+                            fontSize   = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -291,58 +340,62 @@ fun MapScreen(navController: NavController) {
                 .padding(paddingValues)
         ) {
 
-            // Google Map
-            GoogleMap(
-                modifier = Modifier.fillMaxSize(),
-                cameraPositionState = cameraPositionState,
-                uiSettings = MapUiSettings(
-                    zoomControlsEnabled = false,
-                    myLocationButtonEnabled = false
-                ),
-                properties = MapProperties(
-                    isMyLocationEnabled = false // set true after location permission
-                )
-            ) {
-                // Equipment markers
-                sampleEquipment.forEach { equipment ->
-                    Marker(
-                        state = MarkerState(
-                            position = LatLng(equipment.lat, equipment.lng)
-                        ),
-                        title = equipment.name,
-                        snippet = "KES ${equipment.pricePerHour}/hr",
-                        icon = BitmapDescriptorFactory.defaultMarker(
-                            if (equipment.status == "Idle")
-                                BitmapDescriptorFactory.HUE_GREEN
-                            else
-                                BitmapDescriptorFactory.HUE_ORANGE
-                        ),
-                        onClick = {
-                            selectedEquipment = equipment
-                            scope.launch {
-                                scaffoldState.bottomSheetState.expand()
-                            }
-                            true
-                        }
-                    )
-                }
-            }
+            // OpenStreetMap
+            AndroidView(
+                factory = { ctx ->
+                    org.osmdroid.views.MapView(ctx).apply {
+                        setTileSource(TileSourceFactory.MAPNIK)
+                        setMultiTouchControls(true)
+                        controller.setZoom(13.0)
+                        controller.setCenter(GeoPoint(-1.286389, 36.817223))
+                        mapView = this
+                    }
+                },
+                update = { map ->
+                    map.overlays.clear()
 
-            // Search bar on top of map
+                    // Filter by search query
+                    val filtered = if (searchQuery.isBlank()) equipmentList
+                    else equipmentList.filter {
+                        it.name.contains(searchQuery, ignoreCase = true) ||
+                                it.type.contains(searchQuery, ignoreCase = true)
+                    }
+
+                    filtered.forEach { equipment ->
+                        val marker = org.osmdroid.views.overlay.Marker(map).apply {
+                            position = GeoPoint(equipment.lat, equipment.lng)
+                            title    = equipment.name
+                            snippet  = "KES ${equipment.pricePerHour}/hr"
+                            setOnMarkerClickListener { _, _ ->
+                                selectedEquipment = equipment
+                                scope.launch {
+                                    scaffoldState.bottomSheetState.expand()
+                                }
+                                true
+                            }
+                        }
+                        map.overlays.add(marker)
+                    }
+                    map.invalidate()
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+
+            // Search bar
             Card(
-                modifier = Modifier
+                modifier  = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
                     .align(Alignment.TopCenter),
-                shape = RoundedCornerShape(16.dp),
+                shape     = RoundedCornerShape(16.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                colors    = CardDefaults.cardColors(containerColor = Color.White)
             ) {
                 OutlinedTextField(
-                    value = searchQuery,
+                    value         = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("Search equipment...") },
-                    leadingIcon = {
+                    placeholder   = { Text("Search equipment...") },
+                    leadingIcon   = {
                         Icon(
                             Icons.Default.Search,
                             contentDescription = null,
@@ -350,8 +403,8 @@ fun MapScreen(navController: NavController) {
                         )
                     },
                     singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color.Transparent,
+                    colors     = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor   = Color.Transparent,
                         unfocusedBorderColor = Color.Transparent
                     ),
                     modifier = Modifier.fillMaxWidth()
@@ -361,17 +414,17 @@ fun MapScreen(navController: NavController) {
             // My location FAB
             FloatingActionButton(
                 onClick = {
-                    // TODO: animate camera to user location
+                    // TODO: get user location and animate camera
                 },
-                modifier = Modifier
+                modifier       = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(16.dp),
                 containerColor = Color.White,
-                contentColor = ShambaGreen,
-                shape = CircleShape
+                contentColor   = ShambaGreen,
+                shape          = CircleShape
             ) {
                 Icon(
-                    imageVector = Icons.Default.MyLocation,
+                    imageVector    = Icons.Default.MyLocation,
                     contentDescription = "My Location"
                 )
             }
@@ -384,4 +437,3 @@ fun MapScreen(navController: NavController) {
 fun MapScreenPreview() {
     MapScreen(rememberNavController())
 }
-

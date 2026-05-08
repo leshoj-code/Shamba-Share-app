@@ -61,13 +61,20 @@ dependencies {
     implementation("androidx.navigation:navigation-runtime-ktx:2.9.4")
     implementation("androidx.navigation:navigation-compose:2.9.4")
 
-    //Map
-    implementation("com.google.maps.android:maps-compose:4.3.3")
-    implementation("com.google.android.gms:play-services-maps:19.0.0")
 
-    //Retrofit
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    // OpenStreetMap
+    implementation("org.osmdroid:osmdroid-android:6.1.18")
+
+    // Cloudinary
+    implementation("com.cloudinary:cloudinary-android:3.0.2")
+
+    // Image loading
+    implementation("io.coil-kt:coil-compose:2.4.0")
+
+    // Location
+    implementation("com.google.android.gms:play-services-location:21.0.1")
+
+
 
 
 

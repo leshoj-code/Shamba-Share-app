@@ -65,6 +65,12 @@ import com.ojiambo.shambashare.navigation.ROUT_DASHBOARD
 import com.ojiambo.shambashare.ui.theme.ShambaGreen
 import com.ojiambo.shambashare.ui.theme.ShambaGreenLight
 import com.ojiambo.shambashare.ui.theme.ShambaGreenPale
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.shape.CircleShape
+import coil.compose.AsyncImage
+import com.ojiambo.shambashare.network.CloudinaryConfig
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -85,6 +91,31 @@ fun AddEquipmentScreen(navController: NavController) {
     val gradient = Brush.verticalGradient(
         colors = listOf(ShambaGreen, ShambaGreenLight)
     )
+
+    var imageUri      by remember { mutableStateOf<Uri?>(null) }
+    var imageUrl      by remember { mutableStateOf("") }
+    var imageUploading by remember { mutableStateOf(false) }
+
+    val imagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            imageUri      = it
+            imageUploading = true
+            CloudinaryConfig.uploadImage(
+                context   = context,
+                imageUri  = it,
+                onSuccess = { url ->
+                    imageUrl       = url
+                    imageUploading = false
+                },
+                onError = { error ->
+                    errorMessage   = "Image upload failed: $error"
+                    imageUploading = false
+                }
+            )
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
 
@@ -259,6 +290,94 @@ fun AddEquipmentScreen(navController: NavController) {
                     }
                 }
 
+                // Image upload section
+                Text(
+                    text = "Equipment Photo",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0f2d1c)
+                )
+
+                Card(
+                    onClick = { imagePicker.launch("image/*") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(160.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (imageUri != null)
+                            Color.Black
+                        else
+                            Color(0xFFF5F5F5)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (imageUri != null) {
+                            AsyncImage(
+                                model             = imageUri,
+                                contentDescription = "Equipment photo",
+                                modifier          = Modifier.fillMaxSize(),
+                                contentScale      = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                            // Upload progress overlay
+                            if (imageUploading) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(Color.Black.copy(alpha = 0.5f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        CircularProgressIndicator(
+                                            color    = Color.White,
+                                            modifier = Modifier.size(32.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text     = "Uploading...",
+                                            color    = Color.White,
+                                            fontSize = 13.sp
+                                        )
+                                    }
+                                }
+                            } else {
+                                // Uploaded checkmark
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(8.dp)
+                                        .size(28.dp)
+                                        .clip(CircleShape)
+                                        .background(ShambaGreen),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(text = "✓", color = Color.White, fontSize = 14.sp)
+                                }
+                            }
+                        } else {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(text = "📷", fontSize = 36.sp)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text      = "Tap to add a photo",
+                                    fontSize  = 13.sp,
+                                    color     = Color.Gray,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text     = "Helps renters identify your equipment",
+                                    fontSize = 11.sp,
+                                    color    = Color.LightGray
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // Equipment name
                 OutlinedTextField(
                     value = equipmentName,
@@ -386,7 +505,8 @@ fun AddEquipmentScreen(navController: NavController) {
                                         lat = lat,
                                         lng = lng,
                                         status = "Idle",
-                                        ownerUid = uid
+                                        ownerUid = uid,
+                                        imageUrl = imageUrl
                                     )
 
                                     FirebaseDatabase.getInstance()

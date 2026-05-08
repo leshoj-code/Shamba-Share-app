@@ -10,5 +10,6 @@ data class EquipmentData(
     val lng: Double = 0.0,
     val status: String = "Idle",
     val ownerUid: String = "",
-    val ownerPhone: String = ""
+    val ownerPhone: String = "",
+    val imageUrl: String = ""
 )

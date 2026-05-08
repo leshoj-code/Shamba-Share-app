@@ -83,9 +83,10 @@ class AuthViewModel(val navController: NavController, val context: Context) {
             }
     }
 
-    fun login(email: String, password: String) {
+    fun login(email: String, password: String, onComplete: () -> Unit = {}) {
         if (email.isBlank() || password.isBlank()) {
             Toast.makeText(context, "Email and password cannot be blank.", Toast.LENGTH_LONG).show()
+            onComplete()
             return
         }
 
@@ -99,28 +100,27 @@ class AuthViewModel(val navController: NavController, val context: Context) {
                         .addOnSuccessListener { snapshot ->
                             val role = snapshot.child("role").value?.toString() ?: "renter"
                             Toast.makeText(context, "Welcome back!", Toast.LENGTH_SHORT).show()
+                            onComplete()
                             if (role == "owner") {
-                                navController.navigate("dashboard") {
+                                navController.navigate(ROUT_DASHBOARD) {
                                     popUpTo(ROUT_LOGIN) { inclusive = true }
                                 }
                             } else {
-                                navController.navigate("map") {
+                                navController.navigate(ROUT_MAP) {
                                     popUpTo(ROUT_LOGIN) { inclusive = true }
                                 }
                             }
                         }
                         .addOnFailureListener {
                             Toast.makeText(context, "Failed to fetch user role.", Toast.LENGTH_SHORT).show()
-                            navController.navigate("map") {
+                            onComplete()
+                            navController.navigate(ROUT_MAP) {
                                 popUpTo(ROUT_LOGIN) { inclusive = true }
                             }
                         }
                 } else {
-                    Toast.makeText(
-                        context,
-                        "Wrong email or password.",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    Toast.makeText(context, "Wrong email or password.", Toast.LENGTH_SHORT).show()
+                    onComplete()
                 }
             }
     }

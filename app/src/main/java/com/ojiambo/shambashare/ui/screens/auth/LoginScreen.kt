@@ -213,15 +213,16 @@ fun LoginScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(28.dp))
 
-            // Login button
             Button(
                 onClick = {
                     if (email.isBlank() || password.isBlank()) {
                         errorMessage = "Please fill in all fields."
                     } else {
                         isLoading = true
-                        authViewModel.login(email, password)
-                        isLoading = false
+                        errorMessage = ""
+                        authViewModel.login(email, password) {
+                            isLoading = false
+                        }
                     }
                 },
                 modifier = Modifier

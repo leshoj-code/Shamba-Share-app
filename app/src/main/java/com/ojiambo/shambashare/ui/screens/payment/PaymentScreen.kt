@@ -42,7 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -51,18 +51,13 @@ import androidx.navigation.compose.rememberNavController
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 import com.ojiambo.shambashare.navigation.ROUT_DASHBOARD
-import com.ojiambo.shambashare.network.MpesaClient
-import com.ojiambo.shambashare.network.MpesaRequest
 import com.ojiambo.shambashare.ui.theme.ShambaGreen
 import com.ojiambo.shambashare.ui.theme.ShambaGreenLight
 import com.ojiambo.shambashare.ui.theme.ShambaGreenPale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
 
 @Composable
 fun PaymentScreen(
@@ -74,10 +69,10 @@ fun PaymentScreen(
     amount: Int = 0
 ) {
     var selectedMethod by remember { mutableStateOf("mpesa") }
-    var phoneNumber by remember { mutableStateOf(renterPhone) }
-    var cashReference by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
+    var phoneNumber    by remember { mutableStateOf(renterPhone) }
+    var cashReference  by remember { mutableStateOf("") }
+    var isLoading      by remember { mutableStateOf(false) }
+    var errorMessage   by remember { mutableStateOf("") }
 
     val context = LocalContext.current
 
@@ -159,7 +154,7 @@ fun PaymentScreen(
             }
         }
 
-        // Payment method selector + form
+        // Payment method + form
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -179,15 +174,11 @@ fun PaymentScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // M-Pesa option
                 Surface(
                     onClick = { selectedMethod = "mpesa" },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(16.dp),
-                    color = if (selectedMethod == "mpesa")
-                        ShambaGreen
-                    else
-                        Color(0xFFF5F5F5),
+                    color = if (selectedMethod == "mpesa") ShambaGreen else Color(0xFFF5F5F5),
                     tonalElevation = 0.dp
                 ) {
                     Column(
@@ -200,10 +191,7 @@ fun PaymentScreen(
                             text = "M-Pesa",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (selectedMethod == "mpesa")
-                                Color.White
-                            else
-                                Color(0xFF333333)
+                            color = if (selectedMethod == "mpesa") Color.White else Color(0xFF333333)
                         )
                         Text(
                             text = "STK Push to\nrenter's phone",
@@ -212,21 +200,17 @@ fun PaymentScreen(
                                 Color.White.copy(alpha = 0.8f)
                             else
                                 Color.Gray,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            textAlign = TextAlign.Center,
                             lineHeight = 15.sp
                         )
                     }
                 }
 
-                // Cash option
                 Surface(
                     onClick = { selectedMethod = "cash" },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(16.dp),
-                    color = if (selectedMethod == "cash")
-                        Color(0xFF1565C0)
-                    else
-                        Color(0xFFF5F5F5),
+                    color = if (selectedMethod == "cash") Color(0xFF1565C0) else Color(0xFFF5F5F5),
                     tonalElevation = 0.dp
                 ) {
                     Column(
@@ -239,10 +223,7 @@ fun PaymentScreen(
                             text = "Cash",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (selectedMethod == "cash")
-                                Color.White
-                            else
-                                Color(0xFF333333)
+                            color = if (selectedMethod == "cash") Color.White else Color(0xFF333333)
                         )
                         Text(
                             text = "Record a manual\ncash payment",
@@ -251,7 +232,7 @@ fun PaymentScreen(
                                 Color.White.copy(alpha = 0.8f)
                             else
                                 Color.Gray,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            textAlign = TextAlign.Center,
                             lineHeight = 15.sp
                         )
                     }
@@ -290,7 +271,7 @@ fun PaymentScreen(
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = ShambaGreen,
-                                focusedLabelColor = ShambaGreen
+                                focusedLabelColor  = ShambaGreen
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -330,7 +311,7 @@ fun PaymentScreen(
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = Color(0xFF1565C0),
-                                focusedLabelColor = Color(0xFF1565C0)
+                                focusedLabelColor  = Color(0xFF1565C0)
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -373,21 +354,15 @@ fun PaymentScreen(
                                 errorMessage = "Please enter the renter's phone number."
                             } else {
                                 isLoading = true
+                                errorMessage = ""
                                 triggerMpesaPayment(
-                                    context = context,
-                                    phone = phoneNumber,
-                                    amount = amount,
+                                    context     = context,
+                                    phone       = phoneNumber,
+                                    amount      = amount,
                                     equipmentId = equipmentId,
-                                    renterUid = renterUid,
-                                    onSuccess = { mpesaRef ->
+                                    renterUid   = renterUid,
+                                    onSuccess   = {
                                         isLoading = false
-                                        savePaymentToFirebase(
-                                            equipmentId = equipmentId,
-                                            renterUid = renterUid,
-                                            amount = amount,
-                                            method = "mpesa",
-                                            reference = mpesaRef
-                                        )
                                         navController.navigate(ROUT_DASHBOARD) {
                                             popUpTo(ROUT_DASHBOARD) { inclusive = false }
                                         }
@@ -401,20 +376,21 @@ fun PaymentScreen(
                         }
                         "cash" -> {
                             isLoading = true
+                            errorMessage = ""
                             val ref = cashReference.ifBlank {
                                 "CASH-${System.currentTimeMillis()}"
                             }
                             savePaymentToFirebase(
                                 equipmentId = equipmentId,
-                                renterUid = renterUid,
-                                amount = amount,
-                                method = "cash",
-                                reference = ref
+                                renterUid   = renterUid,
+                                amount      = amount,
+                                method      = "cash",
+                                reference   = ref
                             )
                             isLoading = false
                             Toast.makeText(
                                 context,
-                                "Cash payment of KES $amount recorded. Ref: $ref",
+                                "💵 Cash payment of KES $amount recorded. Ref: $ref",
                                 Toast.LENGTH_LONG
                             ).show()
                             navController.navigate(ROUT_DASHBOARD) {
@@ -430,15 +406,15 @@ fun PaymentScreen(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (selectedMethod == "mpesa") ShambaGreen
                     else Color(0xFF1565C0),
-                    contentColor = Color.White
+                    contentColor   = Color.White
                 ),
                 enabled = !isLoading
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(
-                        color = Color.White,
+                        color       = Color.White,
                         strokeWidth = 2.dp,
-                        modifier = Modifier.size(22.dp)
+                        modifier    = Modifier.size(22.dp)
                     )
                 } else {
                     Text(
@@ -446,7 +422,7 @@ fun PaymentScreen(
                             "📲 Send STK Push"
                         else
                             "💵 Confirm Cash Payment",
-                        fontSize = 16.sp,
+                        fontSize   = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -457,113 +433,151 @@ fun PaymentScreen(
     }
 }
 
-// Calls your Django backend which triggers Safaricom STK Push
+// ── Simulated STK Push ────────────────────────────────────────────────────────
 fun triggerMpesaPayment(
-    context: Context,
-    phone: String,
-    amount: Int,
+    context:     Context,
+    phone:       String,
+    amount:      Int,
     equipmentId: String,
-    renterUid: String,
-    onSuccess: (String) -> Unit,
-    onError: (String) -> Unit
+    renterUid:   String,
+    onSuccess:   (String) -> Unit,
+    onError:     (String) -> Unit
 ) {
-    CoroutineScope(Dispatchers.IO).launch {
-        try {
-            // ✅ Format phone correctly
-            val formattedPhone = when {
-                phone.startsWith("0") -> "254${phone.substring(1)}"
-                phone.startsWith("+") -> phone.substring(1)
-                phone.startsWith("254") -> phone
-                else -> phone
-            }
+    fun generateMpesaRef(): String {
+        val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        return (1..10).map { chars.random() }.joinToString("")
+    }
 
-            val response = MpesaClient.api.stkPush(
-                MpesaRequest(
-                    phone = formattedPhone,
-                    amount = amount,
-                    equipmentId = equipmentId,
-                    renterUid = renterUid
+    CoroutineScope(Dispatchers.Main).launch {
+        try {
+            Toast.makeText(
+                context,
+                "📲 STK Push sent to $phone. Waiting for PIN...",
+                Toast.LENGTH_LONG
+            ).show()
+
+            // Simulate renter entering PIN (3 seconds)
+            delay(3000)
+
+            val mpesaRef  = generateMpesaRef()
+            val ownerUid  = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+            val db        = FirebaseDatabase.getInstance()
+            val paymentId = db.getReference("Payments").push().key ?: ""
+            val timestamp = System.currentTimeMillis()
+
+            // Save completed payment
+            db.getReference("Payments/$paymentId").setValue(
+                mapOf(
+                    "id"          to paymentId,
+                    "equipmentId" to equipmentId,
+                    "renterUid"   to renterUid,
+                    "ownerUid"    to ownerUid,
+                    "amount"      to amount,
+                    "phone"       to phone,
+                    "method"      to "mpesa",
+                    "reference"   to mpesaRef,
+                    "status"      to "completed",
+                    "timestamp"   to timestamp
                 )
             )
 
-            withContext(Dispatchers.Main) {
-                if (response.success) {
-                    onSuccess(response.paymentId) // 🔥 real ID from backend
-                    Toast.makeText(
-                        context,
-                        "STK Push sent. Check your phone 📲",
-                        Toast.LENGTH_LONG
-                    ).show()
-                } else {
-                    onError("Failed to initiate payment")
-                }
+            // Mark equipment Idle
+            db.getReference("Equipment/$equipmentId").updateChildren(
+                mapOf("status" to "Idle", "currentRenter" to null)
+            )
+
+            // Notify renter
+            if (renterUid.isNotEmpty()) {
+                db.getReference("Notifications/$renterUid").push().setValue(
+                    mapOf(
+                        "title"   to "Payment Confirmed 💰",
+                        "message" to "Your payment of KES $amount was confirmed. Ref: $mpesaRef",
+                        "type"    to "payment",
+                        "ref"     to mpesaRef,
+                        "isRead"  to false,
+                        "time"    to timestamp
+                    )
+                )
             }
 
-        } catch (e: Exception) {
-            withContext(Dispatchers.Main) {
-                onError(e.message ?: "Network error")
+            // Notify owner
+            if (ownerUid.isNotEmpty()) {
+                db.getReference("Notifications/$ownerUid").push().setValue(
+                    mapOf(
+                        "title"   to "Payment Received 💰",
+                        "message" to "KES $amount received via M-Pesa. Ref: $mpesaRef",
+                        "type"    to "payment",
+                        "ref"     to mpesaRef,
+                        "isRead"  to false,
+                        "time"    to timestamp
+                    )
+                )
             }
+
+            Toast.makeText(
+                context,
+                "✅ Payment of KES $amount confirmed! Ref: $mpesaRef",
+                Toast.LENGTH_LONG
+            ).show()
+
+            onSuccess(mpesaRef)
+
+        } catch (e: Exception) {
+            onError(e.message ?: "Payment simulation failed")
         }
     }
 }
 
-// Saves the payment record to Firebase so it appears in History + Notifications
+// ── Cash payment to Firebase ──────────────────────────────────────────────────
 fun savePaymentToFirebase(
     equipmentId: String,
-    renterUid: String,
-    amount: Int,
-    method: String,
-    reference: String
+    renterUid:   String,
+    amount:      Int,
+    method:      String,
+    reference:   String
 ) {
-    val ownerUid = FirebaseAuth.getInstance().currentUser?.uid ?: return
-    val db = FirebaseDatabase.getInstance()
-
+    val ownerUid  = FirebaseAuth.getInstance().currentUser?.uid ?: return
+    val db        = FirebaseDatabase.getInstance()
     val paymentId = db.getReference("Payments").push().key ?: return
     val timestamp = System.currentTimeMillis()
 
-    val payment = mapOf(
-        "id"          to paymentId,
-        "equipmentId" to equipmentId,
-        "renterUid"   to renterUid,
-        "ownerUid"    to ownerUid,
-        "amount"      to amount,
-        "method"      to method,
-        "reference"   to reference,
-        "timestamp"   to timestamp,
-        "status"      to "completed"
+    db.getReference("Payments/$paymentId").setValue(
+        mapOf(
+            "id"          to paymentId,
+            "equipmentId" to equipmentId,
+            "renterUid"   to renterUid,
+            "ownerUid"    to ownerUid,
+            "amount"      to amount,
+            "method"      to method,
+            "reference"   to reference,
+            "timestamp"   to timestamp,
+            "status"      to "completed"
+        )
     )
 
-    // Save payment record
-    db.getReference("Payments/$paymentId").setValue(payment)
-
-    // Update equipment status back to Idle
     db.getReference("Equipment/$equipmentId").updateChildren(
         mapOf("status" to "Idle", "currentRenter" to null)
     )
 
-    // Push notification to renter
     db.getReference("Notifications/$renterUid").push().setValue(
         mapOf(
             "title"   to "Payment Confirmed 💰",
             "message" to "Your payment of KES $amount was received. Ref: $reference",
-            "method"  to method,
+            "type"    to method,
             "ref"     to reference,
-            "time"    to timestamp,
             "isRead"  to false,
-            "type"    to "payment"
+            "time"    to timestamp
         )
     )
 
-    // Push notification to owner
     db.getReference("Notifications/$ownerUid").push().setValue(
         mapOf(
             "title"   to "Payment Received 💰",
             "message" to "KES $amount received via ${method.uppercase()}. Ref: $reference",
-            "method"  to method,
+            "type"    to method,
             "ref"     to reference,
-            "time"    to timestamp,
             "isRead"  to false,
-            "type"    to "payment"
+            "time"    to timestamp
         )
     )
 }
@@ -571,9 +585,5 @@ fun savePaymentToFirebase(
 @Preview(showBackground = true)
 @Composable
 fun PaymentScreenPreview() {
-    PaymentScreen(
-        navController = rememberNavController(),
-        equipmentName = "Massey Ferguson 385",
-        amount = 3500
-    )
+    PaymentScreen(navController = rememberNavController())
 }
