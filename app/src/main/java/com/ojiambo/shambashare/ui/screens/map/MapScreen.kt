@@ -2,7 +2,6 @@ package com.ojiambo.shambashare.ui.screens.map
 
 import android.R.attr.title
 import android.content.Intent
-import android.content.res.Configuration
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.snapping.SnapPosition.Center.position
@@ -62,10 +61,10 @@ import coil.compose.AsyncImage
 import com.google.firebase.database.FirebaseDatabase
 import com.ojiambo.shambashare.ui.theme.ShambaGreen
 import kotlinx.coroutines.launch
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.config.Configuration as OsmConfig
+import com.google.android.gms.location.LocationServices
 
 data class EquipmentMapItem(
     val id:           String = "",
@@ -79,11 +78,14 @@ data class EquipmentMapItem(
     val imageUrl:     String = ""
 )
 
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(navController: NavController) {
 
     val context = LocalContext.current
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
     var searchQuery       by remember { mutableStateOf("") }
     var selectedEquipment by remember { mutableStateOf<EquipmentMapItem?>(null) }
     var equipmentList     by remember { mutableStateOf<List<EquipmentMapItem>>(emptyList()) }
@@ -96,6 +98,43 @@ fun MapScreen(navController: NavController) {
             skipHiddenState = false
         )
     )
+
+    fun moveToMyLocation() {
+
+        try {
+
+            fusedLocationClient.getCurrentLocation(
+                com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
+                null
+            ).addOnSuccessListener { location ->
+
+                if (location != null) {
+
+                    val userPoint = GeoPoint(
+                        location.latitude,
+                        location.longitude
+                    )
+
+                    mapView?.controller?.apply {
+                        setZoom(18.0)
+                        animateTo(userPoint)
+                    }
+
+                } else {
+                    android.widget.Toast
+                        .makeText(
+                            context,
+                            "Unable to get current location",
+                            android.widget.Toast.LENGTH_SHORT
+                        )
+                        .show()
+                }
+            }
+
+        } catch (e: SecurityException) {
+            e.printStackTrace()
+        }
+    }
 
     // Initialize OSM config
     LaunchedEffect(Unit) {
@@ -344,15 +383,30 @@ fun MapScreen(navController: NavController) {
             AndroidView(
                 factory = { ctx ->
                     org.osmdroid.views.MapView(ctx).apply {
-                        setTileSource(TileSourceFactory.MAPNIK)
+                        setTileSource(org.osmdroid.tileprovider.tilesource.TileSourceFactory.MAPNIK)
                         setMultiTouchControls(true)
+
+                        // Explicitly define the provider first
+                        val myLocationProvider = org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider(ctx)
+
+                        // Pass the provider and the MapView (this) to the overlay
+                        val locationOverlay = org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay(myLocationProvider, this)
+
+                        locationOverlay.enableMyLocation()
+                        // Optional: This makes the map follow the user as they move
+                        // locationOverlay.enableFollowLocation()
+
+                        this.overlays.add(locationOverlay)
+
                         controller.setZoom(13.0)
-                        controller.setCenter(GeoPoint(-1.286389, 36.817223))
+                        controller.setCenter(org.osmdroid.util.GeoPoint(-1.286389, 36.817223))
                         mapView = this
                     }
                 },
                 update = { map ->
-                    map.overlays.clear()
+                    map.overlays.removeAll {
+                        it is org.osmdroid.views.overlay.Marker
+                    }
 
                     // Filter by search query
                     val filtered = if (searchQuery.isBlank()) equipmentList
@@ -414,7 +468,8 @@ fun MapScreen(navController: NavController) {
             // My location FAB
             FloatingActionButton(
                 onClick = {
-                    // TODO: get user location and animate camera
+                    moveToMyLocation()
+                    android.util.Log.d("MAP_DEBUG", "FAB CLICKED")
                 },
                 modifier       = Modifier
                     .align(Alignment.BottomEnd)
